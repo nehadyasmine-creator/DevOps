@@ -1,0 +1,46 @@
+services:
+  database:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mon-postgres-container
+    networks:
+      - app-network
+    environment:
+      - POSTGRES_DB=db
+      - POSTGRES_USER=usr
+      - POSTGRES_PASSWORD=pwd
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend/simpleapi/simpleapi
+      dockerfile: Dockerfile
+    container_name: my-api-container
+    networks:
+      - app-network
+    depends_on:
+      - database
+    restart: unless-stopped
+
+  httpd:
+    build:
+      context: ./Httpd
+      dockerfile: Dockerfile
+    container_name: my-httpd-container
+    networks:
+      - app-network
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  pgdata:
