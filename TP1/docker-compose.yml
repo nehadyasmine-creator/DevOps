@@ -5,13 +5,18 @@ services:
       dockerfile: Dockerfile
     container_name: mon-postgres-container
     networks:
-      - app-network
+      - back-net
     environment:
-      - POSTGRES_DB=db
-      - POSTGRES_USER=usr
-      - POSTGRES_PASSWORD=pwd
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   backend:
@@ -20,9 +25,14 @@ services:
       dockerfile: Dockerfile
     container_name: my-api-container
     networks:
-      - app-network
+      - back-net
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
     depends_on:
-      - database
+      database:
+        condition: service_healthy
     restart: unless-stopped
 
   httpd:
@@ -31,7 +41,10 @@ services:
       dockerfile: Dockerfile
     container_name: my-httpd-container
     networks:
-      - app-network
+      - front-net
+      - back-net
+    environment:
+      - BACKEND_HOST=${BACKEND_HOST}
     ports:
       - "80:80"
     depends_on:
@@ -39,7 +52,9 @@ services:
     restart: unless-stopped
 
 networks:
-  app-network:
+  front-net:
+    driver: bridge
+  back-net:
     driver: bridge
 
 volumes:
